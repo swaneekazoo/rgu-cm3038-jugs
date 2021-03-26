@@ -1,5 +1,5 @@
 """
-Water Jug Problem Solver using A* Search
+Water Jug Problem Solver
 Author: Adam Weir
 """
 
@@ -9,7 +9,6 @@ import enum
 
 
 class ActionType(enum.Enum):
-
     """
     Represents the 3 types of action described by the problem and their accompanying costs (per litre).
     Fill: Fill a jug from the sink.
@@ -22,48 +21,43 @@ class ActionType(enum.Enum):
 
 
 class Jug(enum.Enum):
-
     """Represents the 2 jugs at the heart of the problem and their string representations."""
     A = 'A'
     B = 'B'
 
-def other_jug(jug: Jug):
-    """Given one jug, return the other."""
 
+def other_jug(jug: Jug):
+    """Given one ``Jug``, return the other."""
     return {
         Jug.A: Jug.B,
         Jug.B: Jug.A
     }[jug]
 
-class WaterJugWorld:
 
-    """Models the problem's constants, in this case the capacity of the jugs."""
+class WaterJugWorld:
+    """Models the problem's constants, in this case the capacities of the jugs."""
     def __init__(self, a_max: int, b_max: int):
         self.a_max = a_max
         self.b_max = b_max
 
 
 class WaterJugAction(search.Action):
-
-    """Models an Action given its type and which jug to apply it to."""
-
+    """Models an ``Action`` in terms of its ``ActionType`` and which ``Jug`` to apply it to."""
     def __init__(self, action_type: ActionType, jug: Jug):
         super().__init__()
         self.action_type = action_type
         self.jug = jug
+
     def __str__(self):
         return {
-            ActionType.FILL: "Fill Jug {} from the tap.".format(self.jug.value),
-            ActionType.POUR: "Pour Jug {} into the other.".format(self.jug.value),
-            ActionType.EMPTY: "Empty Jug {} into the sink.".format(self.jug.value)
+            ActionType.FILL: "Fill Jug {} from the tap. Cost: {}".format(self.jug.value, self.cost),
+            ActionType.POUR: "Pour Jug {} into Jug {}. Cost: {}".format(self.jug.value, other_jug(self.jug).value, self.cost),
+            ActionType.EMPTY: "Empty Jug {} into the sink. Cost: {}".format(self.jug.value, self.cost)
         }[self.action_type]
 
 
 class WaterJugState(search.State):
-    """
-    Models the current state, i.e. the volume in the jugs.
-    Takes a reference to the 'world' for jug capacities.
-    """
+    """Models a ``State`` in terms of the capacities & volumes of the jugs."""
 
     def __init__(self, world: WaterJugWorld, a: int, b: int):
         self.world = world
@@ -72,136 +66,119 @@ class WaterJugState(search.State):
 
     def __str__(self):
         return "Jug A: {}/{}l \n" \
-               "Jug B: {}/{}l".format(self.a, self.world.a_max,
-                                      self.b, self.world.b_max)
+               "Jug B: {}/{}l \n".format(self.a, self.world.a_max,
+                                         self.b, self.world.b_max)
 
     def __eq__(self, other):
-        if self.a == other.a and self.b == other.b:
-            return True
-        else:
+        if not isinstance(other, WaterJugState):
             return False
+        return self.a == other.a and self.b == other.b
 
     def __hash__(self):
         return self.a + self.b * 100
 
     def apply_action(self, action: WaterJugAction):
-        # TODO
-        """Return the result of a given Action on the current State."""
-
+        """Return the result of a given ``WaterJugAction`` on the current ``WaterJugState``."""
+        # Variables
         jug = action.jug
         action_type = action.action_type
-        a = 0
-        b = 0
+        # Logic
         a, b = {
-            ActionType.FILL: self.fill(jug),
-            ActionType.POUR: self.pour(jug),
-            ActionType.EMPTY: {
-                Jug.A: (0, self.b),
-                Jug.B: (self.a, 0)
-            }[jug]
+            ActionType.FILL: self.fill_result(jug),
+            ActionType.POUR: self.pour_result(jug),
+            ActionType.EMPTY: self.empty_result(jug)
         }[action_type]
         return WaterJugState(self.world, a, b)
 
     def successor(self):
-        """Return a list of all possible action-state pairs from the current State."""
-
+        """Return a list of ``ActionStatePair``,
+         representing every possible ``WaterJugAction`` that can be performed on the current ``WaterJugState``."""
         result = []
-        # Iterate over all ActionType/Jug combinations
-        # Add to result if possible
+        # Iterate over all Actions
+        # If Action is possible, find its cost & add to result list
         for action_type in ActionType:
             for jug in Jug:
                 action = WaterJugAction(action_type, jug)
-                possible = self.is_possible(action)
                 if self.is_possible(action):
+                    action.cost = self.action_cost(action)
                     result.append(search.ActionStatePair(action, self.apply_action(action)))
         return result
 
-    # Helper methods
-
     def get_volume(self, jug: Jug):
-        """Return the volume of a given jug."""
-
+        """Return the volume of a given ``Jug``."""
         return {
             Jug.A: self.a,
             Jug.B: self.b
         }[jug]
 
-    def set_volume(self, jug: Jug, volume: int):
-        """Set the given jug's volume to the given volume."""
-
-        if volume <= self.get_capacity(jug):
-            self.a, self.b = {
-                Jug.A: (volume, self.b),
-                Jug.B: (self.a, volume)
-            }[jug]
-        else:
-            print("Cannot exceed jug capacity.")
-
     def get_capacity(self, jug: Jug):
-        """Return the capacity of a given jug."""
-
+        """Return the capacity of a given ``Jug``."""
         return {
             Jug.A: self.world.a_max,
             Jug.B: self.world.b_max
         }[jug]
 
     def is_full(self, jug: Jug):
-        """Return True if a given jug is full."""
-
+        """Return ``True`` if a given ``Jug`` is full."""
         return {
             Jug.A: (self.a == self.world.a_max),
             Jug.B: (self.b == self.world.b_max)
         }[jug]
 
     def is_empty(self, jug: Jug):
-        """Return True if a given jug is empty."""
-
+        """Return ``True`` if a given ``Jug`` is empty."""
         return {
             Jug.A: (self.a == 0),
             Jug.B: (self.b == 0)
         }[jug]
 
+    def set_volume_result(self, jug: Jug, volume: int):
+        """Return the volumes of both jugs after setting a given ``Jug`` to a given ``volume``."""
+        if volume <= self.get_capacity(jug):
+            a, b = {
+                Jug.A: (volume, self.b),
+                Jug.B: (self.a, volume)
+            }[jug]
+            return a, b
 
-    def fill(self, jug: Jug):
-        """Return a tuple (A, B) representing the volumes in the jugs after filling the given jug."""
+    def fill_result(self, jug: Jug):
+        """Return the volumes of both jugs after filling a given ``Jug``."""
+        return self.set_volume_result(jug, self.get_capacity(jug))
 
-        return {
-            Jug.A: (self.world.a_max, self.b),
-            Jug.B: (self.a, self.world.b_max)
-        }[jug]
-
-    def pour(self, jug: Jug):
-        """Return a tuple (A, B) representing the volumes in the jugs after pouring the given jug into the other."""
-
-        a = 0
-        b = 0
+    def pour_result(self, jug: Jug):
+        """Return the volumes of both jugs after pouring a given ``Jug`` into the other."""
+        # Variables
         other = other_jug(jug)
         volume = self.get_volume(jug)
         other_volume = self.get_volume(other)
-        capacity = self.get_capacity(jug)
         other_capacity = self.get_capacity(other)
-        # If the jug can be emptied into the other without overflowing
-        if self.a + self.b <= other_capacity:
-            self.set_volume(jug, 0)
-            self.set_volume(other, (volume + other_volume))
+        # Logic
+        # If the jug can be emptied into the other without overflowing:
+        if volume + other_volume <= other_capacity:
+            # Pouring jug = 0. Receiving jug = volume of this jug + volume of the other
+            a, b = {
+                Jug.A: (0, volume + other_volume),
+                Jug.B: (volume + other_volume, 0)
+            }[jug]
+        # If the jug cannot be emptied into the other without overflowing:
         else:
-            self.set_volume(jug, volume - (other_capacity - other_volume))
-            self.set_volume(other, other_capacity)
+            # Pouring jug = its volume - the remaining capacity of the other. Receiving jug = its capacity
+            a, b = {
+                Jug.A: (volume - (other_capacity - other_volume), other_capacity),
+                Jug.B: (other_capacity, volume - (other_capacity - other_volume))
+            }[jug]
+        return a, b
 
-
-    def empty(self, jug: Jug):
-        """Return a tuple (A, B) representing the volumes in the jugs after emptying the given jug."""
-
-        return {
-            Jug.A: (0, self.b),
-            Jug.B: (self.a, 0)
-        }[jug]
+    def empty_result(self, jug: Jug):
+        """Return the volumes of both jugs after emptying a given jug."""
+        return self.set_volume_result(jug, 0)
 
     def is_possible(self, action: WaterJugAction):
-        """Return True if a given action is possible."""
-
+        """Return ``True`` if a given ``WaterJugAction`` is possible."""
+        # Variables
         action_type = action.action_type
         jug = action.jug
+        # Logic
         return {
             # If this jug is full, you can't fill it
             ActionType.FILL: not self.is_full(jug),
@@ -215,40 +192,127 @@ class WaterJugState(search.State):
             ActionType.EMPTY: not self.is_empty(action.jug)
         }[action_type]
 
+    def action_cost(self, action: WaterJugAction):
+        """Return the cost of a given ``WaterJugAction`` if performed on the current ``WaterJugState``."""
+        # Variables
+        jug = action.jug
+        volume = self.get_volume(jug)
+        capacity = self.get_capacity(jug)
+        other = other_jug(jug)
+        other_volume = self.get_volume(other)
+        other_capacity = self.get_capacity(other)
+        action_type = action.action_type
+        multiplier = action_type.value
+        litres = 0
+        # Logic
+        if action_type == ActionType.FILL:
+            litres = capacity - volume
+        if action_type == ActionType.POUR:
+            # If the jug can be emptied into the other without overflowing:
+            if (volume + other_volume) <= other_capacity:
+                litres = volume
+            else:
+                litres = other_capacity - other_volume
+        if action_type == ActionType.EMPTY:
+            litres = volume
+        return litres * multiplier
 
-class AStarSearchProblem(informed.BestFirstSearchProblem):
-    """A domain-independent informed SearchProblem, using A* Search."""
 
-    def __init__(self, start, goal):
-        super().__init__(start, goal)
-
-    def evaluation(self, node):
-        """Return the result of the A* evaluation function f(n) = g(n) + h(n)."""
-
-        return node.getCost() + self.heuristic(node.state)
-
-    def heuristic(self, state):
-        """Return the result of the heuristic function h(n)."""
-
-        pass
-
-
-class WaterJugSearchProblem(search.SearchProblem):
-    """A domain-dependent uninformed SearchProblem for the Water Jug Problem, using Breadth-First Search."""
+class WaterJugSearchProblemBFS(search.SearchProblem):
+    """
+    A domain-dependent uninformed SearchProblem for the Water Jug Problem.
+    This implementation uses Breadth-First Search.
+    """
 
     def __init__(self, start: WaterJugState, goal: WaterJugState):
         super().__init__(start)
         self.start = start
         self.goal = goal
 
+    def __str__(self):
+        start_a = self.start.a
+        start_b = self.start.b
+        goal_a = self.goal.a
+        goal_b = self.goal.b
+        a_max = self.start.world.a_max
+        b_max = self.start.world.b_max
+        return "Problem: \n" \
+               "Jug A: {}/{}l, Jug B: {}/{}l -> Jug A: {}/{}l, Jug B: {}/{}l \n".format(start_a, a_max,
+                                                                                                 start_b, b_max,
+                                                                                                 goal_a, a_max,
+                                                                                                 goal_b, b_max)
+
     def isGoal(self, state: WaterJugState):
         return state == self.goal
 
 
-class WaterJugSearchProblemAStar(AStarSearchProblem):
+class WaterJugSearchProblemDFS(search.SearchProblem):
     """
-    A domain-dependent informed SearchProblem for the Water Jug Problem, using A* Search.
-    This implementation uses the 'Markings' heuristic.
+    A domain-dependent uninformed SearchProblem for the Water Jug Problem.
+    This implementation uses Breadth-First Search.
+    """
+
+    def __init__(self, start: WaterJugState, goal: WaterJugState):
+        super().__init__(start)
+        self.start = start
+        self.goal = goal
+
+    def __str__(self):
+        start_a = self.start.a
+        start_b = self.start.b
+        goal_a = self.goal.a
+        goal_b = self.goal.b
+        a_max = self.start.world.a_max
+        b_max = self.start.world.b_max
+        return "Problem: \n" \
+               "Jug A: {}/{}l, Jug B: {}/{}l -> Jug A: {}/{}l, Jug B: {}/{}l \n".format(start_a, a_max,
+                                                                                        start_b, b_max,
+                                                                                        goal_a, a_max,
+                                                                                        goal_b, b_max)
+
+    def isGoal(self, state: WaterJugState):
+        return state == self.goal
+
+    def addChild(self, fringe, childNode):
+        fringe.insert(0, childNode)
+
+
+class GBFSearchProblem(informed.BestFirstSearchProblem):
+    """A domain-independent informed SearchProblem.
+    This abstract class uses Greedy Best-First Search."""
+
+    def __init__(self, start, goal):
+        super().__init__(start, goal)
+
+    def evaluation(self, node):
+        """Return the result of the A* evaluation function f(n) = g(n) + h(n)."""
+        return self.heuristic(node.state)
+
+    def heuristic(self, state):
+        """Return the result of the heuristic function h(n)."""
+        pass
+
+
+class AStarSearchProblem(informed.BestFirstSearchProblem):
+    """A domain-independent informed SearchProblem.
+    This abstract class uses A* Search."""
+
+    def __init__(self, start, goal):
+        super().__init__(start, goal)
+
+    def evaluation(self, node):
+        """Return the result of the A* evaluation function f(n) = g(n) + h(n)."""
+        return node.getCost() + self.heuristic(node.state)
+
+    def heuristic(self, state):
+        """Return the result of the heuristic function h(n)."""
+        pass
+
+
+class WaterJugSearchProblemGBF(GBFSearchProblem):
+    """
+    A domain-dependent informed SearchProblem for the Water Jug Problem.
+    This implementation uses Greedy Best-First Search with the 'Markings' heuristic.
     """
 
     def __init__(self, start: WaterJugState, goal: WaterJugState):
@@ -256,65 +320,165 @@ class WaterJugSearchProblemAStar(AStarSearchProblem):
         self.start = start
         self.goal = goal
 
+    def __str__(self):
+        start_a = self.start.a
+        start_b = self.start.b
+        goal_a = self.goal.a
+        goal_b = self.goal.b
+        a_max = self.start.world.a_max
+        b_max = self.start.world.b_max
+        return "Problem: \n" \
+               "Jug A: {}/{}l, Jug B: {}/{}l -> Jug A: {}/{}l, Jug B: {}/{}l \n".format(start_a, a_max,
+                                                                                        start_b, b_max,
+                                                                                        goal_a, a_max,
+                                                                                        goal_b, b_max)
+
     def isGoal(self, state: WaterJugState):
         return state == self.goal
 
     def heuristic(self, state: WaterJugState):
-        """The Markings heuristic function."""
-
+        """The 'Markings' heuristic function."""
         result = 0.0
-        # The total number of litres in both jugs
+        deficit = 0
+        excess = 0
+        # 1.) Difference
+        a_diff = abs(self.goal.a - state.a)
+        b_diff = abs(self.goal.b - state.b)
+        total_difference = a_diff + b_diff
+        max_difference = max(a_diff, b_diff)
+        # 2.) Deficit/Excess
         total = state.a + state.b
         goal_total = self.goal.a + self.goal.b
-
-        # Check whether the total amount of water needs to be increased or decreased
-        # i.e., how much water, if any, needs to be filled from the tap or poured into the sink
+        pourable = 0
+        # If there is a deficit:
         if total < goal_total:
-            result += (goal_total - total) * 5.0
+            deficit = goal_total - total
+            # If any of the difference can be made up by using the POUR action
+            if total_difference > deficit:
+                pourable = max_difference - deficit
+        # If there is an excess:
         elif total > goal_total:
-            result += (total - goal_total) * 20.0
-        if state.a < self.goal.a:
-            result += self.goal.a - state.a
-        elif state.b < self.goal.b:
-            result += self.goal.b - state.b
-        return abs(state.a - self.goal.a) + abs(state.b - self.goal.b)
+            excess = total - goal_total
+            # If any of the difference can be made up by using the POUR action
+            if total_difference > excess:
+                pourable = max_difference - excess
+        # If there is no deficit or excess:
+        else:
+            pourable = max_difference
+        # 3.) Return
+        result += deficit * ActionType.FILL.value
+        result += pourable * ActionType.POUR.value
+        result += excess * ActionType.EMPTY.value
+        return result
+
+
+class WaterJugSearchProblemAStar(AStarSearchProblem):
+    """
+    A domain-dependent informed SearchProblem for the Water Jug Problem.
+    This implementation uses A* Search with the 'Markings' heuristic.
+    """
+
+    def __init__(self, start: WaterJugState, goal: WaterJugState):
+        super().__init__(start, goal)
+        self.start = start
+        self.goal = goal
+
+    def __str__(self):
+        start_a = self.start.a
+        start_b = self.start.b
+        goal_a = self.goal.a
+        goal_b = self.goal.b
+        a_max = self.start.world.a_max
+        b_max = self.start.world.b_max
+        return "Problem: \n" \
+               "Jug A: {}/{}l, Jug B: {}/{}l -> Jug A: {}/{}l, Jug B: {}/{}l \n".format(start_a, a_max,
+                                                                                        start_b, b_max,
+                                                                                        goal_a, a_max,
+                                                                                        goal_b, b_max)
+
+    def isGoal(self, state: WaterJugState):
+        return state == self.goal
+
+    def heuristic(self, state: WaterJugState):
+        """The 'Markings' heuristic function."""
+        result = 0.0
+        deficit = 0
+        excess = 0
+        # 1.) Difference
+        a_diff = abs(self.goal.a - state.a)
+        b_diff = abs(self.goal.b - state.b)
+        total_difference = a_diff + b_diff
+        max_difference = max(a_diff, b_diff)
+        # 2.) Deficit/Excess
+        total = state.a + state.b
+        goal_total = self.goal.a + self.goal.b
+        pourable = 0
+        # If there is a deficit:
+        if total < goal_total:
+            deficit = goal_total - total
+            # If any of the difference can be made up by using the POUR action
+            if total_difference > deficit:
+                pourable = max_difference - deficit
+        # If there is an excess:
+        elif total > goal_total:
+            excess = total - goal_total
+            # If any of the difference can be made up by using the POUR action
+            if total_difference > excess:
+                pourable = max_difference - excess
+        # If there is no deficit or excess:
+        else:
+            pourable = max_difference
+        # 3.) Sum and return
+        result += deficit * ActionType.FILL.value
+        result += pourable * ActionType.POUR.value
+        result += excess * ActionType.EMPTY.value
+        return result
+
+
+class JugOverflowException(Exception):
+    """A custom ``Exception`` to prevent the user-input problem parameters from exceeding the jug capacities."""
+    def __init__(self):
+        super().__init__()
 
 
 def run():
-    # invalid = True
-    # while invalid:
-    #     print("Capacity for Jug A: ")
-    #     a_max = input()
-    #     print("Capacity for Jug B: ")
-    #     b_max = input()
-    #     print("Starting volume for Jug A: ")
-    #     a = input()
-    #     print("Starting volume for Jug B: ")
-    #     b = input()
-    #     print("Goal volume for Jug A: ")
-    #     a_goal = input()
-    #     print("Goal volume for Jug B: ")
-    #     b_goal = input()
-    #     if a < a_max and b < b_max:
-    #         invalid = False
-    #     else:
-    #         print("Invalid input. Please try again.")
-
-    # TODO Validate & convert to int
-    a_max = 5
-    b_max = 3
-    a = 0
-    b = 0
-    a_goal = 4
-    b_goal = 0
+    # Get user input
+    invalid = True
+    while invalid:
+        try:
+            print("Capacity for Jug A: ")
+            a_max = int(input())
+            print("Capacity for Jug B: ")
+            b_max = int(input())
+            print("Starting volume for Jug A: ")
+            a = int(input())
+            print("Starting volume for Jug B: ")
+            b = int(input())
+            print("Goal volume for Jug A: ")
+            a_goal = int(input())
+            print("Goal volume for Jug B: ")
+            b_goal = int(input())
+            if a > a_max or b > b_max or a_goal > a_max or b_goal > b_max:
+                raise JugOverflowException
+            invalid = False
+        except JugOverflowException:
+            print("Please enter starting and goal volumes for both jugs which are less than their capacities.")
+        except ValueError:
+            print("Please enter numbers only.")
+    # Set up problem
     world = WaterJugWorld(a_max, b_max)
     initial_state = WaterJugState(world, a, b)
     goal_state = WaterJugState(world, a_goal, b_goal)
-    problem = WaterJugSearchProblem(initial_state, goal_state)
+    # problem = WaterJugSearchProblemBFS(initial_state, goal_state)
+    # problem = WaterJugSearchProblemDFS(initial_state, goal_state)
+    # problem = WaterJugSearchProblemGreedy(initial_state, goal_state)
+    problem = WaterJugSearchProblemAStar(initial_state, goal_state)
+    # Search & print
     path = problem.search()
     print("Done!\n")
+    print(problem)
     if path is None:
-        print("No solution.")  # no solution
+        print("No solution.")
     else:
         print(path)
         print("Nodes visited: {}\n".format(problem.nodeVisited))

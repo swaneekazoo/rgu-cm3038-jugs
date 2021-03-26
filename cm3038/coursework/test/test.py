@@ -27,7 +27,24 @@ def hash():
     state2 = goal.apply_action(action2)
     print(state2.__hash__())
 
+def enum1():
+    member = jug.ActionType.POUR
+    enum2(member)
+
+def enum2(member):
+    print(member.value)
+
+def heuristic():
+    world = jug.WaterJugWorld(5, 4)
+    state = jug.WaterJugState(world, 0, 0)
+    state2 = jug.WaterJugState(world, 0, 3)
+    goal = jug.WaterJugState(world, 5, 4)
+    problem = jug.WaterJugSearchProblemAStar(state, goal)
+    print(problem.heuristic(state))
+
 if __name__ == "__main__":
     # state_str()
-    action()
+    # action()
     # hash()
+    # enum1
+    heuristic()
