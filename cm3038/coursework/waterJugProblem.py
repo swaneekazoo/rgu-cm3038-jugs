@@ -365,7 +365,7 @@ class WaterJugSearchProblemGBF(GBFSearchProblem):
         # If there is no deficit or excess:
         else:
             pourable = max_difference
-        # 3.) Return
+        # 3.) Sum & return
         result += deficit * ActionType.FILL.value
         result += pourable * ActionType.POUR.value
         result += excess * ActionType.EMPTY.value
@@ -428,7 +428,7 @@ class WaterJugSearchProblemAStar(AStarSearchProblem):
         # If there is no deficit or excess:
         else:
             pourable = max_difference
-        # 3.) Sum and return
+        # 3.) Sum & return
         result += deficit * ActionType.FILL.value
         result += pourable * ActionType.POUR.value
         result += excess * ActionType.EMPTY.value
