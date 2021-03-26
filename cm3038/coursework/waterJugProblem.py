@@ -441,6 +441,13 @@ class JugOverflowException(Exception):
         super().__init__()
 
 
+class JugUnderflowException(Exception):
+    """A custom ``Exception`` to prevent the user-input problem parameters from being set to < 0."""
+
+    def __init__(self):
+        super().__init__()
+
+
 def run():
     # Get user input
     invalid = True
@@ -460,9 +467,13 @@ def run():
             b_goal = int(input())
             if a > a_max or b > b_max or a_goal > a_max or b_goal > b_max:
                 raise JugOverflowException
+            if a_max < 0 or b_max < 0 or a < 0 or b < 0 or a_goal < 0 or b_goal < 0:
+                raise JugUnderflowException
             invalid = False
         except JugOverflowException:
             print("Please enter starting and goal volumes for both jugs which are less than their capacities.")
+        except JugUnderflowException:
+            print("Please enter numbers greater than 0 only.")
         except ValueError:
             print("Please enter numbers only.")
     # Set up problem
