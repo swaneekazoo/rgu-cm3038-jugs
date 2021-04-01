@@ -10,11 +10,12 @@ import enum
 
 class ActionType(enum.Enum):
     """
-    Represents the 3 types of action described by the problem and their accompanying costs (per litre).
-    Fill: Fill a jug from the sink.
+    Represents the 3 types of ``Action`` described by the problem and their accompanying costs (per litre).
+    Fill: Fill a jug from the tap.
     Pour: Pour from one jug to the other until the receiving jug is full or the pouring jug is empty.
     Empty: Empty a jug into the sink.
     """
+
     FILL = 5
     POUR = 1
     EMPTY = 20
@@ -22,12 +23,14 @@ class ActionType(enum.Enum):
 
 class Jug(enum.Enum):
     """Represents the 2 jugs at the heart of the problem and their string representations."""
+
     A = 'A'
     B = 'B'
 
 
 def other_jug(jug: Jug):
     """Given one ``Jug``, return the other."""
+
     return {
         Jug.A: Jug.B,
         Jug.B: Jug.A
@@ -36,6 +39,7 @@ def other_jug(jug: Jug):
 
 class WaterJugWorld:
     """Models the problem's constants, in this case the capacities of the jugs."""
+
     def __init__(self, a_max: int, b_max: int):
         self.a_max = a_max
         self.b_max = b_max
@@ -43,6 +47,7 @@ class WaterJugWorld:
 
 class WaterJugAction(search.Action):
     """Models an ``Action`` in terms of its ``ActionType`` and which ``Jug`` to apply it to."""
+
     def __init__(self, action_type: ActionType, jug: Jug):
         super().__init__()
         self.action_type = action_type
@@ -57,7 +62,7 @@ class WaterJugAction(search.Action):
 
 
 class WaterJugState(search.State):
-    """Models a ``State`` in terms of the capacities & volumes of the jugs."""
+    """Models a ``State`` in terms of the volumes of the jugs."""
 
     def __init__(self, world: WaterJugWorld, a: int, b: int):
         self.world = world
@@ -78,7 +83,7 @@ class WaterJugState(search.State):
         return self.a + self.b * 100
 
     def apply_action(self, action: WaterJugAction):
-        """Return the result of a given ``WaterJugAction`` on the current ``WaterJugState``."""
+        """Return the result of a given ``WaterJugAction`` on this ``WaterJugState``."""
         # Variables
         jug = action.jug
         action_type = action.action_type
@@ -92,7 +97,7 @@ class WaterJugState(search.State):
 
     def successor(self):
         """Return a list of ``ActionStatePair``,
-         representing every possible ``WaterJugAction`` that can be performed on the current ``WaterJugState``."""
+         representing every possible ``WaterJugAction`` that can be performed on this ``WaterJugState``."""
         result = []
         # Iterate over all Actions
         # If Action is possible, find its cost & add to result list
@@ -184,16 +189,13 @@ class WaterJugState(search.State):
             ActionType.FILL: not self.is_full(jug),
             # If this jug is empty, you can't pour from it
             # If the other jug is full, you can't pour into it
-            ActionType.POUR: {
-                Jug.A: not self.is_empty(Jug.A) and not self.is_full(Jug.B),
-                Jug.B: not self.is_empty(Jug.B) and not self.is_full(Jug.A)
-            }[jug],
+            ActionType.POUR: not self.is_empty(jug) and not self.is_full(other_jug(jug)),
             # If this jug is empty, you can't empty it
             ActionType.EMPTY: not self.is_empty(action.jug)
         }[action_type]
 
     def action_cost(self, action: WaterJugAction):
-        """Return the cost of a given ``WaterJugAction`` if performed on the current ``WaterJugState``."""
+        """Return the cost of a given ``WaterJugAction`` if performed on this ``WaterJugState``."""
         # Variables
         jug = action.jug
         volume = self.get_volume(jug)
@@ -337,7 +339,7 @@ class WaterJugSearchProblemGBF(GBFSearchProblem):
         return state == self.goal
 
     def heuristic(self, state: WaterJugState):
-        """The 'Markings' heuristic function."""
+        """Return the result of the 'Markings' heuristic function h(n), where n is a given ``WaterJugState``."""
         result = 0.0
         deficit = 0
         excess = 0
@@ -353,13 +355,13 @@ class WaterJugSearchProblemGBF(GBFSearchProblem):
         # If there is a deficit:
         if total < goal_total:
             deficit = goal_total - total
-            # If any of the difference can be made up by using the POUR action
+            # If any of the difference can be resolved by using the POUR action:
             if total_difference > deficit:
                 pourable = max_difference - deficit
         # If there is an excess:
         elif total > goal_total:
             excess = total - goal_total
-            # If any of the difference can be made up by using the POUR action
+            # If any of the difference can be resolved by using the POUR action:
             if total_difference > excess:
                 pourable = max_difference - excess
         # If there is no deficit or excess:
@@ -400,7 +402,7 @@ class WaterJugSearchProblemAStar(AStarSearchProblem):
         return state == self.goal
 
     def heuristic(self, state: WaterJugState):
-        """The 'Markings' heuristic function."""
+        """Return the result of the 'Markings' heuristic function h(n), where n is a given ``WaterJugState``."""
         result = 0.0
         deficit = 0
         excess = 0
@@ -416,13 +418,13 @@ class WaterJugSearchProblemAStar(AStarSearchProblem):
         # If there is a deficit:
         if total < goal_total:
             deficit = goal_total - total
-            # If any of the difference can be made up by using the POUR action
+            # If any of the difference can be resolved by using the POUR action:
             if total_difference > deficit:
                 pourable = max_difference - deficit
         # If there is an excess:
         elif total > goal_total:
             excess = total - goal_total
-            # If any of the difference can be made up by using the POUR action
+            # If any of the difference can be resolved by using the POUR action:
             if total_difference > excess:
                 pourable = max_difference - excess
         # If there is no deficit or excess:
@@ -436,13 +438,14 @@ class WaterJugSearchProblemAStar(AStarSearchProblem):
 
 
 class JugOverflowException(Exception):
-    """A custom ``Exception`` to prevent the user-input problem parameters from exceeding the jug capacities."""
+    """A custom ``Exception`` to prevent the user-input jug volume parameters from exceeding the jug capacities."""
+
     def __init__(self):
         super().__init__()
 
 
 class JugUnderflowException(Exception):
-    """A custom ``Exception`` to prevent the user-input problem parameters from being set to < 0."""
+    """A custom ``Exception`` to prevent the user-input parameters from being set to < 0."""
 
     def __init__(self):
         super().__init__()
